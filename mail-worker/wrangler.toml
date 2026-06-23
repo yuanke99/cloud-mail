@@ -45,3 +45,4 @@ crons = ["0 16 * * *"]	#每天晚上12点执行每日任务,刷新分析缓存
 
 [build]
 command = "pnpm --prefix ../mail-vue install && pnpm --prefix ../mail-vue run build"
+ 
