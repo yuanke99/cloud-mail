@@ -6,18 +6,18 @@ keep_vars = true
 [observability]
 enabled = true
 
-#[[d1_databases]]
-#binding = "db"			#d1数据库绑定名默认不可修改
-#database_name = ""		#d1数据库名字
-#database_id = ""		#d1数据库id
+[[d1_databases]]
+binding = "db"			#d1数据库绑定名默认不可修改
+database_name = "cloud-mail"		#d1数据库名字
+database_id = "3d67d0bd-6744-42fd-b4f8-ffbf75ecb27d"		#d1数据库id
 
-#[[kv_namespaces]]
-#binding = "kv"			#kv绑定名默认不可修改
-#id = ""					#kv数据库id
+[[kv_namespaces]]
+binding = "kv"			#kv绑定名默认不可修改
+id = "874574e0e4894823937752acd35074ca"					#kv数据库id
 
-#[[r2_buckets]]
-#binding = "r2"			#r2对象存储绑定名默认不可修改
-#bucket_name = ""		#r2对象存储桶的名字
+[[r2_buckets]]
+binding = "r2"			#r2对象存储绑定名默认不可修改
+bucket_name = "cloud-mail"		#r2对象存储桶的名字
 
 #[[send_email]]
 #name = "email"			#CF发件, 配置后优先使用
