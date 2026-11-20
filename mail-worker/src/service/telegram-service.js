@@ -46,26 +46,13 @@ function decodeEntities(text) {
 function htmlToPlain(html) {
 	let text = html;
 
-	// 注释、条件注释
 	text = text.replace(/<!--[\s\S]*?-->/g, '');
-
-	// doctype、XML 声明
 	text = text.replace(/<![^>]*>/g, '');
-
-	// head 整块、不可见节点
 	text = text.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '');
 	text = text.replace(/<(style|script|title|noscript|svg|iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
-
-	// 图片（基本都是跟踪像素）
 	text = text.replace(/<img\b[^>]*\/?>/gi, '');
 
-	// 保护 <pre> 缩进：行首空格换 NBSP
-	text = text.replace(/<pre\b[^>]*>([\s\S]*?)<\/pre>/gi, (full, inner) => {
-		const protectedInner = inner.replace(/^([ \t]+)/gm, m => '\u00A0'.repeat(m.length));
-		return '\n' + protectedInner + '\n';
-	});
-
-	// 链接：文字 (地址)；纯图片链接直接丢掉，不泄漏追踪地址
+	// 链接：文字 (地址)；纯图片链接丢掉，不泄漏追踪地址
 	text = text.replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, (full, inner) => {
 		const m = full.match(/href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i);
 		const href = ((m && (m[1] ?? m[2] ?? m[3])) || '').trim();
@@ -83,7 +70,7 @@ function htmlToPlain(html) {
 		return `${label} (${shown})`;
 	});
 
-	// 表格：按行聚合成 "单元格 | 单元格"，不会误伤正文里的 markdown 表格
+	// 表格：按行聚合，不误伤正文里的 markdown 表格
 	text = text.replace(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi, (full, inner) => {
 		const cells = inner
 			.split(/<\/(?:td|th)\s*>/i)
@@ -94,15 +81,10 @@ function htmlToPlain(html) {
 	text = text.replace(/<\/(td|th)>/gi, ' | ');
 	text = text.replace(/<\/tr>/gi, '\n');
 
-	// 列表
 	text = text.replace(/<li\b[^>]*>/gi, '\n• ');
 	text = text.replace(/<\/(ul|ol)>/gi, '\n');
-
-	// 块级换行
 	text = text.replace(/<\/(p|div|h[1-6]|blockquote|pre|section|article|header|footer|table|tbody|thead)>/gi, '\n');
 	text = text.replace(/<br\s*\/?>/gi, '\n');
-
-	// 只删字母开头的标签，纯文本里的 < 100 元 >、<a@b.com> 保留
 	text = text.replace(/<\/?[a-z][a-z0-9]*(?:\s[^<>]*)?\/?>/gi, '');
 
 	return decodeEntities(text);
@@ -138,7 +120,7 @@ function stripQuoted(text) {
 	return result && /[\p{L}\p{N}]/u.test(result) ? result : text;
 }
 
-// 邮件对象 → 干净纯文本（未做 Telegram 转义）
+// 邮件对象 → 干净纯文本（尖括号里的 URL 保留，交给 buildMessage 配对成链接）
 function formatEmailBody(emailData) {
 	const plainText = typeof emailData.text === 'string' ? emailData.text : '';
 	const hasPlainText = plainText.trim().length > 0;
@@ -158,13 +140,11 @@ function formatEmailBody(emailData) {
 
 	const cleaned = stripQuoted(tidyText(body));
 
-	// 只剩符号或空白时按无正文处理
 	return /[\p{L}\p{N}]/u.test(cleaned) ? cleaned : '';
 }
 
 // ==================== Telegram 格式化 ====================
 
-// Telegram HTML 模式转义
 function escapeTg(text = '') {
 	return String(text)
 		.replace(/&/g, '&amp;')
@@ -189,6 +169,25 @@ function autoLink(text) {
 		.split(/(&lt;|&gt;)/)
 		.map(seg => (seg === '&lt;' || seg === '&gt;' ? seg : linkify(seg)))
 		.join('');
+}
+
+// 「文字 + <URL>」配对成可点链接；没有文字的尖括号 URL 删掉
+function extractBracketedLinks(text) {
+	const links = [];
+
+	const withLabel = text.replace(/([^\n<>]{1,120})[ \t]*\n?[ \t]*<((?:https?:\/\/|www\.)[^<>\s]+)>/gi, (match, label, url) => {
+		const cleanLabel = label.trim();
+		if (!cleanLabel) return match;
+		const href = (url.startsWith('www.') ? 'http://' + url : url)
+			.replace(/"/g, '%22')
+			.replace(/&/g, '&amp;');
+		links.push({ href, label: cleanLabel });
+		return `\u0001${links.length - 1}\u0001`;
+	});
+
+	const withoutBare = withLabel.replace(/<((?:https?:\/\/|www\.)[^<>\s]+)>/gi, '');
+
+	return { text: withoutBare, links };
 }
 
 const TRUNC_SUFFIX = '\n...(消息太长已截断)';
@@ -245,7 +244,15 @@ function buildMessage(emailData, tgMsgTo, tgMsgFrom, tgMsgText) {
 	if (tgMsgText === 'show') {
 		const body = formatEmailBody(emailData);
 		if (body) {
-			msg += `\n\n${autoLink(escapeTg(body))}`;
+			const { text, links } = extractBracketedLinks(body);
+			let rendered = autoLink(escapeTg(text));
+
+			rendered = rendered.replace(/\u0001(\d+)\u0001/g, (m, i) => {
+				const link = links[Number(i)];
+				return link ? `<a href="${link.href}">${escapeTg(link.label)}</a>` : '';
+			});
+
+			msg += `\n\n${rendered}`;
 		}
 	}
 
