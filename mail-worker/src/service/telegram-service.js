@@ -11,8 +11,19 @@ import jwtUtils from '../utils/jwt-utils';
 import emailMsgTemplate from '../template/email-msg';
 import emailTextTemplate from '../template/email-text';
 import emailHtmlTemplate from '../template/email-html';
-import domainUtils from "../utils/domain-uitls";
+import domainUtils from '../utils/domain-uitls';
 import proxyService from './proxy-service';
+
+function autoLink(text) {
+	if (!text) return text;
+	return text.replace(/((https?:\/\/|www\.)[^\s\u4e00-\u9fa5\uFF00-\uFFEF"<>)]+)/g, (match) => {
+		let href = match;
+		if (match.startsWith('www.')) {
+			href = 'http://' + match;
+		}
+		return `<a href="${href.replace(/"/g, '%22')}">${match}</a>`;
+	});
+}
 
 const telegramService = {
 
@@ -31,7 +42,6 @@ const telegramService = {
 		if (emailRow) {
 
 			if (emailRow.content) {
-				// Telegram 网页预览：外链图改成 /proxy?url=，避免暴露打开者 IP。
 				const html = await proxyService.rewriteHtml(c, emailRow.content);
 				return emailHtmlTemplate(html || '')
 			} else {
@@ -53,14 +63,18 @@ const telegramService = {
 		const jwtToken = await jwtUtils.generateToken(c, { emailId: email.emailId })
 
 		const webAppUrl = customDomain ? `${domainUtils.toOssDomain(customDomain)}/api/telegram/getEmail/${jwtToken}` : 'https://www.cloudflare.com/404'
+
+		// 群聊只能用普通 url 按钮；web_app 和 copy_text 在群里都会返回 BUTTON_TYPE_INVALID
 		const inlineKeyboard = [
 			[
 				{
 					text: 'View',
-					web_app: { url: webAppUrl }
+					url: webAppUrl
 				}
 			]
 		];
+
+		const fullText = autoLink(emailMsgTemplate(email, tgMsgTo, tgMsgFrom, tgMsgText) || 'No Content');
 
 		await Promise.all(tgChatIds.map(async chatId => {
 			try {
@@ -72,7 +86,7 @@ const telegramService = {
 					body: JSON.stringify({
 						chat_id: chatId,
 						parse_mode: 'HTML',
-						text: emailMsgTemplate(email, tgMsgTo, tgMsgFrom, tgMsgText),
+						text: fullText,
 						reply_markup: {
 							inline_keyboard: inlineKeyboard
 						}
