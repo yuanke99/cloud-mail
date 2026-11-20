@@ -62,15 +62,6 @@ const telegramService = {
 			]
 		];
 
-		if (email.code) {
-			inlineKeyboard.push([
-				{
-					text: email.code,
-					copy_text: { text: email.code }
-				}
-			]);
-		}
-
 		await Promise.all(tgChatIds.map(async chatId => {
 			try {
 				const res = await fetch(`https://api.telegram.org/bot${tgBotToken}/sendMessage`, {
