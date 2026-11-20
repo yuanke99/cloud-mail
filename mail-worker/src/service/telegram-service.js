@@ -135,6 +135,12 @@ function formatEmailBody(emailData) {
 		body = '';
 	}
 
+	// [image: RAKsmart] → RAKsmart；alt 为空就整段删掉
+	body = body.replace(/\[\s*image:\s*([^\]]*)\]/gi, (m, alt) => alt.trim());
+
+	// 删除独立成行的竖线（表格里的 "商品 | 价格" 不受影响）
+	body = body.split('\n').filter(line => line.trim() !== '|').join('\n');
+
 	// 保护行首缩进：换成 NBSP，避免被 tidyText / stripQuoted 的 trim 吃掉
 	body = body.replace(/^([ \t]+)/gm, m => '\u00A0'.repeat(m.length));
 
