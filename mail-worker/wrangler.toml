@@ -6,24 +6,21 @@ keep_vars = true
 [observability]
 enabled = true
 
-#[[d1_databases]]
-#binding = "db"			# D1 binding name; do not change
-#database_name = ""		# D1 database name
-#database_id = ""		# D1 database id
+[[d1_databases]]
+binding = "db"
+database_name = "cloud-mail"
+database_id = "3d67d0bd-6744-42fd-b4f8-ffbf75ecb27d"
 
-#[[kv_namespaces]]
-#binding = "kv"			# KV binding name; do not change
-#id = ""					# KV namespace id
+[[kv_namespaces]]
+binding = "kv"
+id = "874574e0e4894823937752acd35074ca"
 
-#[[r2_buckets]]
-#binding = "r2"			# R2 binding name; do not change
-#bucket_name = ""		# R2 bucket name
-
-#[[send_email]]
-#name = "email"			# Cloudflare Email Sending; used first if configured
+[[r2_buckets]]
+binding = "r2"
+bucket_name = "cloud-mail"
 
 [[send_email]]
-name = "forward"		# Forward in-app mail to other verified addresses; not limited to one address
+name = "forward"
 
 [ai]
 binding = "ai"
